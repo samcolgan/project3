@@ -1,0 +1,100 @@
+---
+title: "my_rf_cv"
+author: "Sam Colgan"
+date: "March 17, 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+# Load packages
+library(tidyverse)
+library(randomForest)
+library(kableExtra)
+library(readr)
+
+# Load datasets
+my_penguins <- read_csv("../Data/my_penguins.csv")
+my_gapminder <- read_csv("../Data/my_gapminder.csv")
+```
+
+## Using `my_rf_cv`
+
+To demonstrate the uses of the `my_rf_cv` function, it may be helpful to
+repeat a series of random forest predictions and record the average
+cross-validation misclassification rates for `k` equals 2, 5, and 10
+folds. The random forest function in this package has hardwired the
+`my_penguins` dataset, and will predict `body_mass_g` using
+covariates `bill_length_mm`, `bill_depth_mm`, and
+`flipper_length_mm`. The goal is to compare the CV misclassification rates
+for 2, 5, and 10 folds. 
+
+```{r}
+# Load my_rf_cv function
+source("../Code/my_rf_cv.R")
+
+# Create empty vectors to store CV MSE's
+cv2 <- c(rep(NA, 30))
+cv5 <- c(rep(NA, 30))
+cv10 <- c(rep(NA, 30))
+
+# CV estimated MSE errors for 2, 5, and 10 folds. Run each function 30 times.
+for (i in 1:30) {
+  cv2[i] <- my_rf_cv(2)
+  cv5[i] <- my_rf_cv(5)
+  cv10[i] <- my_rf_cv(10)
+}
+
+# Data frame of CV errors and fold number
+CVerr_data <- data.frame("cv_err" = c(cv2, cv5, cv10),
+                        "fold" = c(rep("02", 30), rep("05", 30), rep("10", 30)))
+
+# Save simulation results
+write_csv("../Output/Results/CVerr_data.csv")
+
+# Create boxplot to compare CV error distributions
+CVerr_plot <- ggplot(CVerr_data,
+                    # Fold # on x-axis, cv_err on y-axis
+                    aes(x = fold, y = cv_err)) +
+  # Boxplot
+  geom_boxplot(fill = "violet") +
+  # Title and axes
+  labs(title = "CV errors by number of folds",
+       x = "# of folds", y = "CV error") +
+  # Font sizing
+  theme_bw(base_size = 16) +
+  # Title size and spacing
+  theme(plot.title = element_text(hjust = 0.5, size = 16)) 
+
+# Show plot
+CVerr_plot
+
+# Save boxplot to Figures
+ggsave(filename = "../Output/Figures/Cverr_plot.pdf", plot = CVerr_plot)
+
+# Table of means and standard deviations
+CVerror_table <- data.frame("Mean" = c(mean(cv2), mean(cv5), mean(cv10)),
+                            "St_Dev" = c(sd(cv2), sd(cv5), sd(cv10)))
+
+# Add rownames
+row.names(CVerror_table) <- c("2_Folds", "5_Folds", "10_Folds") 
+
+# Format
+CVerr_table <- kable_styling(kable(CVerror_table))
+
+# Save table to Results
+saveRDS(CVerr_table, file = "../Output/Results/CVerr_table.rds")
+```
+
+The boxplot and the table demonstrate two consistent results, namely, that the
+mean and standard deviation of the CV error decrease as the number of folds
+increases. Albeit, the mean and standard deviation decrease at a diminishing
+rate. This is likely the case because as the number of folds increases, each
+fold will comprise a smaller share of the data. Thus, for each set of
+predictions, a greater percentage of the data will be used as training data
+while a smaller percentage of the data will be used as test data. The
+opportunity for error decreases and so the average cross-validation error will
+decrease as well. 
